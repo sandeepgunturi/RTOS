@@ -1,5 +1,5 @@
 # RTOS
-Number of clients   -   time delay(/CLOCKS_PER_SEC)
+Number of clients   -   time delay(/CLOCKS_PER_SEC);
 5   -109;
 10  -111;
 15  -118;
