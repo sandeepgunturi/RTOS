@@ -1,131 +1,58 @@
+// Client side C/C++ program to demonstrate Socket programming
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <signal.h>
-#include <unistd.h>
-#include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
-#include <pthread.h>
-#include "proto.h"
-#include "string.h"
-#include<time.h>
+#include <unistd.h>
+#include<pthread.h>
+#include <signal.h>
+#include<stdlib.h>
+#define PORT 8888
 
+char* client_buffer[1024];
 
-// Global variables
-volatile sig_atomic_t flag = 0;
 int sockfd = 0;
-char nickname[LENGTH_NAME] = {};
 
-void catch_ctrl_c_and_exit(int sig) {
-    flag = 1;
+void* read_handlerfunc(void* args){
+  while (1) {
+    int valread = read( sockfd ,client_buffer, 1024);
+  	printf("%s\n",client_buffer);
+  }
+  return NULL;
 }
+ 
 
-void recv_msg_handler() {
-    char receiveMessage[LENGTH_SEND] = {};
-    while (1) {
-        int receive = recv(sockfd, receiveMessage, LENGTH_SEND, 0);
-        if (receive > 0) {
-	    clock_t t;
-	    t=clock();
-            printf("\r%s \n", receiveMessage);
-            str_overwrite_stdout();
-	    
-        } else if (receive == 0) {
-            break;
-        } else { 
-            // -1 
-        }
-    }
-}
+int main(int argc, char const *argv[]){
 
-void send_msg_handler() {
-    char message[LENGTH_MSG] = {};
-    while (1) {
-        str_overwrite_stdout();
-        while (fgets(message, LENGTH_MSG, stdin) != NULL) {
-            str_trim_lf(message, LENGTH_MSG);
-            if (strlen(message) == 0) {
-                str_overwrite_stdout();
-            } else {
-                break;
-            }
-        }
-	    
-        send(sockfd, message, LENGTH_MSG, 0);       
-	if (strcmp(message, "exit") == 0) {
-            break;
-        }
-    }
-    catch_ctrl_c_and_exit(2);
-}
+  //signal(SIGINT, catch_ctrl_c_and_exit);
 
-int main()
-{
-    signal(SIGINT, catch_ctrl_c_and_exit);
+	struct sockaddr_in serv_addr;
+  //socket creation
+	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
+		printf("\n Socket creation error \n");
+		return -1;
+	}
+  //socket address and attach it to port of that address
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_port = htons(PORT);
+	// Convert IPv4 and IPv6 addresses from text to binary form
+	if(inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr)<=0){
+		printf("\nInvalid address/ Address not supported \n");
+		return -1;
+	}
+  if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0){
+		printf("\nConnection Failed \n");
+		return -1;
+	}
+  printf("connected\n" );
 
-    // Naming
-    printf("Please enter your name: ");
-    if (fgets(nickname, LENGTH_NAME, stdin) != NULL) {
-        str_trim_lf(nickname, LENGTH_NAME);
-    }
-    if (strlen(nickname) < 2 || strlen(nickname) >= LENGTH_NAME-1) {
-        printf("\nName must be more than one and less than thirty characters.\n");
-        exit(EXIT_FAILURE);
-    }
+  pthread_t read_handler;
 
-    // Create socket
-    sockfd = socket(AF_INET , SOCK_STREAM , 0);
-    if (sockfd == -1) {
-        printf("Fail to create a socket.");
-        exit(EXIT_FAILURE);
-    }
+  pthread_create(&read_handler,NULL,read_handlerfunc,NULL);
+  while(1){
+    scanf("%s",client_buffer);
+    send(sockfd , client_buffer , strlen(client_buffer) , 0 );
+    //printf("sent\n" );
+  }
 
-    // Socket information
-    struct sockaddr_in server_info, client_info;
-    int s_addrlen = sizeof(server_info);
-    int c_addrlen = sizeof(client_info);
-    memset(&server_info, 0, s_addrlen);
-    memset(&client_info, 0, c_addrlen);
-    server_info.sin_family = PF_INET;
-    server_info.sin_addr.s_addr = inet_addr("127.0.0.1");
-    server_info.sin_port = htons(8888);
-
-    // Connect to Server
-    int err = connect(sockfd, (struct sockaddr *)&server_info, s_addrlen);
-    if (err == -1) {
-        printf("Connection to Server error!\n");
-        exit(EXIT_FAILURE);
-    }
-    
-    // Names
-    getsockname(sockfd, (struct sockaddr*) &client_info, (socklen_t*) &c_addrlen);
-    getpeername(sockfd, (struct sockaddr*) &server_info, (socklen_t*) &s_addrlen);
-    printf("Connect to Server: %s:%d\n", inet_ntoa(server_info.sin_addr), ntohs(server_info.sin_port));
-    printf("You are: %s:%d\n", inet_ntoa(client_info.sin_addr), ntohs(client_info.sin_port));
-
-    send(sockfd, nickname, LENGTH_NAME, 0);
-
-    pthread_t send_msg_thread;
-    if (pthread_create(&send_msg_thread, NULL, (void *) send_msg_handler, NULL) != 0) {
-        printf ("Create pthread error!\n");
-        exit(EXIT_FAILURE);
-    }
-
-    pthread_t recv_msg_thread;
-    if (pthread_create(&recv_msg_thread, NULL, (void *) recv_msg_handler, NULL) != 0) {
-        printf ("Create pthread error!\n");
-        exit(EXIT_FAILURE);
-    }
-
-    while (1) {
-        if(flag) {
-            printf("\nBye\n");
-            break;
-        }
-    }
-
-    close(sockfd);
-    return 0;
+  return 0;
 }
