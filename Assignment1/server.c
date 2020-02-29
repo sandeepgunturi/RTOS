@@ -18,11 +18,11 @@ struct client_node{
 struct client_node client_node_arr[100];
 char* buffer_server[1024];
 
-void sendtoall(char* msg){
+/*void sendtoall(char* msg){
   for(int j=0;j<arr_end;j++){
     send(client_node_arr[j].sock , msg , strlen(msg) , 0 );
   }
-}
+}*/
 
 void* client_handler(void* temp){
   while(1){
@@ -30,11 +30,17 @@ void* client_handler(void* temp){
     //int a = *((int *) temp);
     //free(temp);
     //printf("%d\n",temp2.sock );
+    memset(buffer_server, 0, 255);
     int valread = read( temp2.sock, buffer_server, 1024);
     printf("%s\n",buffer_server);
     if(buffer_server!=NULL){
       if(buffer_server != "bye"){
-        sendtoall(buffer_server);
+        //sendtoall(buffer_server);
+        for(int j=0;j<arr_end;j++){
+          if(client_node_arr[j].sock!=temp2.sock){
+            send(client_node_arr[j].sock , buffer_server , strlen(buffer_server) , 0 );
+          }
+        }
       }
       else{
         //remove from array;
